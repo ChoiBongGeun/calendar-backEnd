@@ -58,13 +58,29 @@ public class TodoController {
         return ResponseEntity.ok(todoService.updateTodo(userDetails, id, request));
     }
 
-    @Operation(summary = "할 일 삭제", description = "할 일을 삭제합니다.")
+    @Operation(summary = "할 일 삭제", description = "할 일을 소프트 삭제합니다.")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTodo(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long id) {
         todoService.deleteTodo(userDetails, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "삭제된 할 일 복원", description = "소프트 삭제된 할 일을 복원합니다.")
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<Void> restoreTodo(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        todoService.restoreTodo(userDetails, id);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "삭제된 할 일 목록 조회", description = "소프트 삭제된 할 일 목록을 조회합니다.")
+    @GetMapping("/deleted")
+    public ResponseEntity<List<TodoResponse>> getDeletedTodos(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(todoService.getDeletedTodos(userDetails));
     }
 
     @Operation(summary = "일별 할 일 조회", description = "특정 날짜의 할 일을 조회합니다.")

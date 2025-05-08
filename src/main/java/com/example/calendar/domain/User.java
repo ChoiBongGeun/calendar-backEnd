@@ -1,30 +1,17 @@
 package com.example.calendar.domain;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import jakarta.persistence.*;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
-
-import javax.persistence.*;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import lombok.Setter;
 
 @Entity
-@Where(clause = "delete_flag = false")
-
 @Table(name = "users")
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Setter
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(unique = true, nullable = false)
-    private UUID uuid;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -34,60 +21,21 @@ public class User {
 
     private String name;
 
+    @Column(name = "delete_flag")
     private boolean deleteFlag;
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private LocalDateTime deletedAt;
+    @Column(name = "updated_at")
+    private Long updatedAt;
 
+    @Column(name = "created_by")
     private String createdBy;
+
+    @Column(name = "updated_by")
     private String updatedBy;
 
     @PrePersist
-    public void prePersist() {
-        this.uuid = UUID.randomUUID();
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = System.currentTimeMillis();
     }
-
-}
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-}
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
 } 

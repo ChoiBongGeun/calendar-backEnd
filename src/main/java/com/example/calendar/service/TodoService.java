@@ -96,7 +96,34 @@ public class TodoService {
             throw new UnauthorizedException("Unauthorized access to todo");
         }
 
-        todoRepository.delete(todo);
+        todo.softDelete();
+        todoRepository.save(todo);
+    }
+
+    @Transactional
+    public void restoreTodo(UserDetails userDetails, Long id) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        Todo todo = todoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Todo not found"));
+
+        if (!todo.getUser().equals(user)) {
+            throw new UnauthorizedException("Unauthorized access to todo");
+        }
+
+        todo.restore();
+        todoRepository.save(todo);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TodoResponse> getDeletedTodos(UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        return todoRepository.findByUserAndDeleteFlagTrue(user).stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

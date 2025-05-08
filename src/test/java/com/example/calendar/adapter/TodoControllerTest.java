@@ -1,50 +1,57 @@
 package com.example.calendar.adapter;
 
+import com.example.calendar.domain.Todo;
+import com.example.calendar.domain.User;
 import com.example.calendar.dto.TodoRequest;
 import com.example.calendar.dto.TodoResponse;
 import com.example.calendar.service.TodoService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith(MockitoExtension.class)
-class TodoControllerTest {
+@WebMvcTest(TodoController.class)
+public class TodoControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
     private TodoService todoService;
 
-    @Mock
-    private UserDetails userDetails;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-    @InjectMocks
-    private TodoController todoController;
-
-    private TodoRequest todoRequest;
-    private TodoResponse todoResponse;
+    private User testUser;
+    private TodoResponse testTodoResponse;
 
     @BeforeEach
     void setUp() {
-        todoRequest = new TodoRequest();
-        todoRequest.setTitle("Test Todo");
-        todoRequest.setDescription("Test Description");
-        todoRequest.setDueDate(LocalDate.now());
-        todoRequest.setCompleted(false);
-
-        todoResponse = TodoResponse.builder()
+        testUser = User.builder()
                 .id(1L)
+                .email("test@example.com")
+                .password("password")
+                .build();
+
+        testTodoResponse = TodoResponse.builder()
+                .id(1L)
+                .uuid(UUID.randomUUID())
                 .title("Test Todo")
                 .description("Test Description")
                 .dueDate(LocalDate.now())
@@ -53,94 +60,91 @@ class TodoControllerTest {
     }
 
     @Test
-    void createTodo_Success() {
-        when(todoService.createTodo(any(UserDetails.class), any(TodoRequest.class)))
-                .thenReturn(todoResponse);
+    void createTodo_ShouldReturnCreatedTodo() throws Exception {
+        TodoRequest request = new TodoRequest();
+        request.setTitle("New Todo");
+        request.setDescription("New Description");
+        request.setDueDate(LocalDate.now());
 
-        ResponseEntity<TodoResponse> response = todoController.createTodo(userDetails, todoRequest);
+        Mockito.when(todoService.createTodo(any(), any())).thenReturn(testTodoResponse);
 
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(todoResponse, response.getBody());
+        mockMvc.perform(post("/api/todos")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value(testTodoResponse.getTitle()))
+                .andExpect(jsonPath("$.description").value(testTodoResponse.getDescription()));
     }
 
     @Test
-    void getTodos_Success() {
-        when(todoService.getTodos(any(UserDetails.class)))
-                .thenReturn(List.of(todoResponse));
+    void getTodo_ShouldReturnTodo() throws Exception {
+        Mockito.when(todoService.getTodo(any(), any())).thenReturn(testTodoResponse);
 
-        ResponseEntity<List<TodoResponse>> response = todoController.getTodos(userDetails);
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        List<TodoResponse> body = response.getBody();
-        assertNotNull(body);
-        assertEquals(1, body.size());
-        assertEquals(todoResponse, body.get(0));
+        mockMvc.perform(get("/api/todos/{uuid}", testTodoResponse.getUuid()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value(testTodoResponse.getTitle()))
+                .andExpect(jsonPath("$.description").value(testTodoResponse.getDescription()));
     }
 
     @Test
-    void getTodo_Success() {
-        when(todoService.getTodo(any(UserDetails.class), anyLong()))
-                .thenReturn(todoResponse);
+    void updateTodo_ShouldReturnUpdatedTodo() throws Exception {
+        TodoRequest request = new TodoRequest();
+        request.setTitle("Updated Title");
+        request.setDescription("Updated Description");
+        request.setDueDate(LocalDate.now());
+        request.setCompleted(true);
 
-        ResponseEntity<TodoResponse> response = todoController.getTodo(userDetails, 1L);
+        TodoResponse updatedTodoResponse = TodoResponse.builder()
+                .id(testTodoResponse.getId())
+                .uuid(testTodoResponse.getUuid())
+                .title("Updated Title")
+                .description("Updated Description")
+                .dueDate(LocalDate.now())
+                .completed(true)
+                .build();
 
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(todoResponse, response.getBody());
+        Mockito.when(todoService.updateTodo(any(), any(), any())).thenReturn(updatedTodoResponse);
+
+        mockMvc.perform(put("/api/todos/{uuid}", testTodoResponse.getUuid())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value(updatedTodoResponse.getTitle()))
+                .andExpect(jsonPath("$.description").value(updatedTodoResponse.getDescription()))
+                .andExpect(jsonPath("$.completed").value(true));
     }
 
     @Test
-    void updateTodo_Success() {
-        when(todoService.updateTodo(any(UserDetails.class), anyLong(), any(TodoRequest.class)))
-                .thenReturn(todoResponse);
+    void deleteTodo_ShouldReturnSuccess() throws Exception {
+        Mockito.doNothing().when(todoService).deleteTodo(any(), any());
 
-        ResponseEntity<TodoResponse> response = todoController.updateTodo(userDetails, 1L, todoRequest);
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(todoResponse, response.getBody());
+        mockMvc.perform(delete("/api/todos/{uuid}", testTodoResponse.getUuid()))
+                .andExpect(status().isOk());
     }
 
     @Test
-    void deleteTodo_Success() {
-        ResponseEntity<Void> response = todoController.deleteTodo(userDetails, 1L);
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-    }
-
-    @Test
-    void getTodosByDate_Success() {
+    void getTodosByDate_ShouldReturnTodos() throws Exception {
+        List<TodoResponse> todos = Arrays.asList(testTodoResponse);
         LocalDate date = LocalDate.now();
-        when(todoService.getTodosByDate(any(UserDetails.class), any(LocalDate.class)))
-                .thenReturn(List.of(todoResponse));
 
-        ResponseEntity<List<TodoResponse>> response = todoController.getTodosByDate(userDetails, date);
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        List<TodoResponse> body = response.getBody();
-        assertNotNull(body);
-        assertEquals(1, body.size());
-        assertEquals(todoResponse, body.get(0));
+        Mockito.when(todoService.getTodosByDate(any(), eq(date))).thenReturn(todos);
+
+        mockMvc.perform(get("/api/todos/date/{date}", date))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value(testTodoResponse.getTitle()))
+                .andExpect(jsonPath("$[0].description").value(testTodoResponse.getDescription()));
     }
 
     @Test
-    void getTodosByMonth_Success() {
-        YearMonth yearMonth = YearMonth.now();
-        when(todoService.getTodosByMonth(any(UserDetails.class), any(YearMonth.class)))
-                .thenReturn(List.of(todoResponse));
+    void getTodosByMonth_ShouldReturnTodos() throws Exception {
+        List<TodoResponse> todos = Arrays.asList(testTodoResponse);
+        YearMonth yearMonth = YearMonth.of(2024, 4);
 
-        ResponseEntity<List<TodoResponse>> response = todoController.getTodosByMonth(userDetails, yearMonth);
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        List<TodoResponse> body = response.getBody();
-        assertNotNull(body);
-        assertEquals(1, body.size());
-        assertEquals(todoResponse, body.get(0));
+        Mockito.when(todoService.getTodosByMonth(any(), eq(yearMonth))).thenReturn(todos);
+
+        mockMvc.perform(get("/api/todos/month/{year}/{month}", yearMonth.getYear(), yearMonth.getMonthValue()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value(testTodoResponse.getTitle()))
+                .andExpect(jsonPath("$[0].description").value(testTodoResponse.getDescription()));
     }
 }
